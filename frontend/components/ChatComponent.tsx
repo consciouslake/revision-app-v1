@@ -27,22 +27,22 @@ interface Message {
     content: string;
 }
 
-export default function ChatComponent({ chapterId }: { chapterId: string }) {
+export default function ChatComponent({ chapterId, mode = "chat" }: { chapterId: string, mode?: "chat" | "history" }) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Fetch chat history on mount
+    // Fetch chat history only if in history mode
     useEffect(() => {
-        if (chapterId) {
+        if (chapterId && mode === "history") {
             fetchAPI(`/chapters/${chapterId}/messages`)
                 .then((data: Message[]) => {
                     setMessages(data);
                 })
                 .catch(err => console.error("Failed to load chat history", err));
         }
-    }, [chapterId]);
+    }, [chapterId, mode]);
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -87,8 +87,8 @@ export default function ChatComponent({ chapterId }: { chapterId: string }) {
                     <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                    <h2 className="font-semibold text-sm">AI Tutor</h2>
-                    <p className="text-xs text-slate-500">Ask questions about this chapter</p>
+                    <h2 className="font-semibold text-sm">{mode === "history" ? "Chat History" : "AI Tutor"}</h2>
+                    <p className="text-xs text-slate-500">{mode === "history" ? "View past conversations" : "Ask questions about this chapter"}</p>
                 </div>
             </div>
 
@@ -103,7 +103,9 @@ export default function ChatComponent({ chapterId }: { chapterId: string }) {
                                 className="flex flex-col items-center justify-center text-center p-8 text-slate-400 mt-10"
                             >
                                 <Bot className="w-12 h-12 mb-3 opacity-50" />
-                                <p className="text-sm">No messages yet. Start the conversation!</p>
+                                <p className="text-sm">
+                                    {mode === "history" ? "No chat history found." : "No messages yet. Start the conversation!"}
+                                </p>
                             </motion.div>
                         )}
                         {messages.map((m, i) => (
@@ -166,32 +168,34 @@ export default function ChatComponent({ chapterId }: { chapterId: string }) {
                 </div>
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        sendMessage();
-                    }}
-                    className="flex gap-2 items-end"
-                >
-                    <Input
-                        className="min-h-[44px] max-h-32 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500"
-                        placeholder="Ask a question..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        disabled={isLoading}
-                    />
-                    <Button
-                        type="submit"
-                        disabled={isLoading || !input.trim()}
-                        size="icon"
-                        className="h-11 w-11 shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm"
+            {/* Input Area - Only show in chat mode */}
+            {mode === "chat" && (
+                <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            sendMessage();
+                        }}
+                        className="flex gap-2 items-end"
                     >
-                        {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                    </Button>
-                </form>
-            </div>
+                        <Input
+                            className="min-h-[44px] max-h-32 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500"
+                            placeholder="Ask a question..."
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            disabled={isLoading}
+                        />
+                        <Button
+                            type="submit"
+                            disabled={isLoading || !input.trim()}
+                            size="icon"
+                            className="h-11 w-11 shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm"
+                        >
+                            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                        </Button>
+                    </form>
+                </div>
+            )}
         </div>
     );
 }

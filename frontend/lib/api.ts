@@ -58,3 +58,76 @@ export async function deleteChapter(id: number) {
         method: 'DELETE',
     });
 }
+
+export async function generateFlashcards(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/flashcards`, {
+        method: 'POST',
+    });
+}
+
+export async function getFlashcards(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/flashcards`);
+}
+
+export async function generateQuiz(chapterId: number, numQuestions: number = 5) {
+    return fetchAPI(`/chapters/${chapterId}/quiz?num=${numQuestions}`, {
+        method: 'POST',
+    });
+}
+
+export async function getQuizzes(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/quizzes`);
+}
+
+export async function processEmbeddings(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/process-embeddings`, {
+        method: 'POST',
+    });
+}
+
+export async function submitQuizResult(quizId: number, score: number, totalQuestions: number, percentage: number) {
+    return fetchAPI(`/quizzes/${quizId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({
+            quiz_id: quizId,
+            score,
+            total_questions: totalQuestions,
+            percentage
+        })
+    });
+}
+
+export async function getUserStats() {
+    return fetchAPI(`/user/stats`);
+}
+
+export async function markChapterComplete(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/complete`, {
+        method: 'POST',
+    });
+}
+
+
+export async function getSubjectsProgress() {
+    return fetchAPI(`/subjects/progress`);
+}
+
+export async function forceOCRChapter(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/force-ocr`, {
+        method: 'POST',
+    });
+}
+
+export async function toggleChapterImportant(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/toggle-important`, {
+        method: 'POST',
+    });
+}
+
+export async function getAIStudyPlan() {
+    return fetchAPI(`/ai/study-plan`);
+}
+
+export async function getChapterProgress(chapterId: number) {
+    return fetchAPI(`/chapters/${chapterId}/progress`);
+}

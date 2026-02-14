@@ -1,13 +1,17 @@
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fetchAPI, deleteSubject } from "@/lib/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchAPI, deleteSubject, getUserStats, getSubjectsProgress } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpen, Layers, Plus, Sparkles, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, BookOpen, Plus, Sparkles, Pencil, Trash2, BarChart3, Search, Clock, Calendar, Trophy, Flame, Target, PlayCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { EditSubjectDialog } from "@/components/EditSubjectDialog";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow, format } from "date-fns";
+import { AIStudyPlan } from "@/components/AIStudyPlan";
 
 interface Subject {
   id: number;
@@ -19,14 +23,31 @@ interface Subject {
 
 export default function Home() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [userStats, setUserStats] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [revisionStats, setRevisionStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
 
   const loadSubjects = () => {
     setLoading(true);
-    fetchAPI("/subjects/")
-      .then((data) => {
-        setSubjects(data);
+    // Parallel fetch for subjects and stats
+    Promise.all([
+      fetchAPI("/subjects/"),
+      getUserStats().catch(err => {
+        console.error("Failed to fetch stats:", err);
+        return null;
+      }),
+      getSubjectsProgress().catch(err => {
+        console.error("Failed to fetch revision stats:", err);
+        return [];
+      })
+    ])
+      .then(([subjectsData, statsData, revisionData]) => {
+        setSubjects(subjectsData);
+        if (statsData) setUserStats(statsData);
+        if (revisionData) setRevisionStats(revisionData);
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -64,165 +85,255 @@ export default function Home() {
     show: { opacity: 1, y: 0 }
   };
 
+  // Helper to get progress for a specific subject
+  const getSubjectProgress = (subjectId: number) => {
+    const stat = revisionStats.find(s => s.subject_id === subjectId);
+    return stat ? stat.completeness_percentage : 0;
+  };
+
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 selection:bg-indigo-100 dark:selection:bg-indigo-900/30">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 selection:bg-indigo-100 dark:selection:bg-indigo-900/30 font-sans">
 
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        {/* Abstract Background Elements */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-200/40 dark:bg-indigo-900/20 rounded-full blur-3xl opacity-50 pointer-events-none" />
-        <div className="absolute top-1/2 right-0 w-[500px] h-[500px] bg-purple-200/40 dark:bg-purple-900/20 rounded-full blur-3xl opacity-30 pointer-events-none" />
+      {/* Hero / Dashboard Section */}
+      <section className="pt-8 pb-12 md:pt-12 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+        <div className="container px-6 mx-auto max-w-7xl">
 
-        <div className="container mx-auto max-w-6xl px-6 pt-24 pb-16 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-center max-w-3xl mx-auto space-y-6"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 backdrop-blur-sm shadow-sm text-sm font-medium text-slate-600 dark:text-slate-300">
-              <Sparkles className="w-4 h-4 text-indigo-500" />
-              <span>AI-Powered Revision Platform</span>
+          {/* Greeting & Date */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+            <div>
+              <p className="text-slate-500 dark:text-slate-400 font-medium mb-1">{format(new Date(), 'EEEE, MMMM do')}</p>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Welcome back, <span className="text-indigo-600 dark:text-indigo-400">Student</span>!
+              </h1>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-indigo-800 to-slate-900 dark:from-white dark:via-indigo-200 dark:to-white pb-2">
-              Recall.
-              <span className="block text-4xl md:text-5xl mt-2 font-bold text-slate-500 dark:text-slate-400">
-                Study Smarter, Not Harder.
-              </span>
-            </h1>
+            {/* Quick Actions / Streak */}
+            <div className="flex items-center gap-4">
+              {userStats && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full border border-orange-100 dark:border-orange-800">
+                  <Flame className="w-5 h-5 fill-orange-500" />
+                  <span className="font-bold">{userStats.streak_days || 0} Day Streak</span>
+                </div>
+              )}
+            </div>
+          </div>
 
-            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
-              Organize your study materials, upload PDFs, and let our AI tutor help you master every chapter effortlessly.
-            </p>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Total Subjects */}
+            <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-slate-50/50 dark:bg-slate-900/50">
+              <CardContent className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Subjects</p>
+                  <h3 className="text-2xl font-bold mt-1">{subjects.length}</h3>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="flex items-center justify-center gap-4 pt-4">
+            {/* Mastery Level */}
+            <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-slate-50/50 dark:bg-slate-900/50">
+              <CardContent className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Mastery Level</p>
+                  <h3 className="text-2xl font-bold mt-1">{userStats?.mastery_level || "Novice"}</h3>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                  <Trophy className="w-5 h-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Chapters Completed */}
+            <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-slate-50/50 dark:bg-slate-900/50">
+              <CardContent className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Chapters Done</p>
+                  <h3 className="text-2xl font-bold mt-1">{userStats?.completed_chapters || 0} <span className="text-sm text-slate-400 font-normal">/ {userStats?.total_chapters || 0}</span></h3>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
+                  <Target className="w-5 h-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Resume Learning */}
+            <Card className="border-indigo-200 dark:border-indigo-800 shadow-sm bg-indigo-50 dark:bg-indigo-950/30 cursor-pointer hover:border-indigo-300 transition-colors group relative overflow-hidden">
+              <Link href={userStats?.last_active_chapter ? `/study/${userStats.last_active_chapter.id}` : "/subjects"}>
+                <div className="absolute inset-0 bg-indigo-100/50 dark:bg-indigo-900/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                <CardContent className="p-6 flex items-center justify-between relative z-10">
+                  <div>
+                    <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Resume Learning</p>
+                    <h3 className="text-lg font-bold mt-1 truncate max-w-[140px]">
+                      {userStats?.last_active_chapter?.title || "Start Studying"}
+                    </h3>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-300">
+                    <PlayCircle className="w-5 h-5 fill-indigo-700/20" />
+                  </div>
+                </CardContent>
+              </Link>
+            </Card>
+          </div>
+
+          {/* Main Dashboard Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            {/* Left Col: AI Study Plan */}
+            <div className="lg:col-span-2 h-full min-h-[300px]">
+              <AIStudyPlan />
+            </div>
+
+            {/* Right Col: Recommended Revision */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-lg flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-slate-400" />
+                  Quick Reviews
+                </h3>
+              </div>
+
+              {revisionStats.length > 0 ? (
+                <div className="space-y-4">
+                  {revisionStats.slice(0, 3).map((stat) => (
+                    <Link key={stat.subject_id} href={`/subjects/${stat.subject_id}`}>
+                      <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-indigo-500">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-sm line-clamp-1">{stat.subject_name}</h4>
+                            <span className="text-xs text-slate-400">
+                              {stat.last_studied_at ? formatDistanceToNow(new Date(stat.last_studied_at), { addSuffix: true }) : "Never"}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-slate-500">
+                              <span>Progress</span>
+                              <span>{stat.completeness_percentage}%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5">
+                              <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${stat.completeness_percentage}%` }}></div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <Card className="bg-slate-50 dark:bg-slate-900 border-dashed">
+                  <CardContent className="p-6 text-center text-slate-500">
+                    <p className="text-sm">No revision history yet. Start studying to see recommendations!</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Your Subjects Section */}
+      <section className="py-16 md:py-24" id="subjects">
+        <div className="container px-6 mx-auto max-w-7xl">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Your Library</h2>
+              <p className="text-slate-500 dark:text-slate-400">Manage your subjects and materials.</p>
+            </div>
+            <Link href="/subjects/new">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" /> New Subject
+              </Button>
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-64 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+              ))}
+            </div>
+          ) : subjects.length > 0 ? (
+            <motion.div
+              variants={container}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {subjects.map((subject) => {
+                const progress = getSubjectProgress(subject.id);
+                return (
+                  <motion.div key={subject.id} variants={item} whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
+                    <Link href={`/subjects/${subject.id}`} className="block h-full group">
+                      <div className="h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-1 relative overflow-hidden hover:shadow-xl hover:shadow-indigo-100/50 dark:hover:shadow-none hover:border-indigo-200 dark:hover:border-indigo-800 transition-all duration-300">
+                        <div className="h-full rounded-xl bg-slate-50 dark:bg-slate-950 p-6 flex flex-col">
+                          <div className="flex justify-between items-start mb-6">
+                            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-xl border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform">
+                              {/* Mock Subject Icon based on name content or random */}
+                              <span>📚</span>
+                            </div>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-indigo-600 transition-colors"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEditingSubject(subject);
+                                }}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-red-600 transition-colors"
+                                onClick={(e) => handleDeleteSubject(e, subject.id, subject.name)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <h3 className="text-lg font-bold mb-2 line-clamp-1 group-hover:text-indigo-600 transition-colors">{subject.name}</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-6 flex-1">
+                            {subject.description || "No description provided."}
+                          </p>
+
+                          <div className="space-y-2 pt-4 border-t border-slate-200/50 dark:border-slate-800">
+                            <div className="flex justify-between text-xs font-medium text-slate-500">
+                              <span>{subject.chapters?.length || 0} Chapters</span>
+                              <span>{progress}% Finished</span>
+                            </div>
+                            <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                whileInView={{ width: `${progress}%` }}
+                                transition={{ duration: 1, delay: 0.2 }}
+                                className="bg-indigo-500 h-1.5 rounded-full"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                )
+              })}
+            </motion.div>
+          ) : (
+            <div className="text-center py-20 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 mb-4">
+                <Search className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold">No subjects found</h3>
+              <p className="text-slate-500 mb-6">Get started by creating your first subject.</p>
               <Link href="/subjects/new">
-                <Button size="lg" className="h-12 px-8 text-base bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg shadow-indigo-200 dark:shadow-none hover:scale-105 transition-all duration-300">
-                  <Plus className="w-5 h-5 mr-2" />
-                  New Subject
-                </Button>
+                <Button>Create Subject</Button>
               </Link>
             </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Subjects Grid Section */}
-      <div className="container mx-auto max-w-6xl px-6 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Layers className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            Your Subjects
-          </h2>
-          {subjects.length > 0 && (
-            <Link href="/subjects" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center">
-              View All <ArrowRight className="w-4 h-4 ml-1" />
-            </Link>
           )}
         </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 rounded-xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
-            ))}
-          </div>
-        ) : subjects.length > 0 ? (
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {subjects.slice(0, 6).map((subject) => (
-              <motion.div key={subject.id} variants={item} whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
-                <Link href={`/subjects/${subject.id}`} className="block h-full group/card">
-                  <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-sm hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-900 group relative">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="bg-indigo-50 dark:bg-indigo-950/50 p-2.5 rounded-lg text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
-                          <BookOpen className="w-6 h-6" />
-                        </div>
-                        {/* Actions */}
-                        <div className="flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/50"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setEditingSubject(subject);
-                            }}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/50"
-                            onClick={(e) => handleDeleteSubject(e, subject.id, subject.name)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <CardTitle className="text-lg font-bold group-hover:text-indigo-600 transition-colors">
-                        {subject.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <CardDescription className="line-clamp-2 mb-4">
-                        {subject.description || "No description provided."}
-                      </CardDescription>
-                      <div className="flex items-center text-xs font-medium text-slate-500">
-                        {subject.chapters?.length || 0} Chapters
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </motion.div>
-            ))}
-
-            {/* "Add New" Card */}
-            <motion.div variants={item} whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
-              <Link href="/subjects/new" className="block h-full">
-                <Card className="h-full border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition-all duration-300 bg-transparent flex flex-col items-center justify-center text-center cursor-pointer min-h-[200px]">
-                  <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 mb-4 group-hover:bg-white transition-colors">
-                    <Plus className="w-6 h-6 text-slate-500 dark:text-slate-400" />
-                  </div>
-                  <h3 className="font-semibold text-slate-700 dark:text-slate-300">Create New Subject</h3>
-                </Card>
-              </Link>
-            </motion.div>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm"
-          >
-            <div className="max-w-md mx-auto px-6">
-              <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600 dark:text-indigo-400">
-                <Layers className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">No subjects yet</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-8">
-                Get started by creating your first subject to organize your revision materials.
-              </p>
-              <Link href="/subjects/new">
-                <Button size="lg" className="bg-indigo-600 text-white rounded-full">
-                  Create First Subject
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
-        )}
-      </div>
-
-      <div className="text-center py-12 text-sm text-slate-400 dark:text-slate-600">
-        <p>&copy; {new Date().getFullYear()} Recall Platform. Built for efficient learning.</p>
-      </div>
+      </section>
 
       <EditSubjectDialog
         open={!!editingSubject}

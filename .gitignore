@@ -23,3 +23,12 @@ out/
 build/
 dist/
 uploads/
+
+# Database
+*.db
+*.sqlite3
+
+# Logs and Debug
+*.log
+ocr_output*.txt
+debug_output.txt
