@@ -8,15 +8,17 @@ This guide walks you through deploying the Recall application to an Oracle Cloud
 2.  **SSH Key Pair** (for connecting to the VM).
 3.  **GitHub Account** (to pull this repository).
 
-## Step 1: Create a Compute Instance
+## Step 1: Create a Compute Instance (Always Free Config)
 
 1.  Log in to the **Oracle Cloud Console**.
 2.  Go to **Compute** -> **Instances**.
 3.  Click **Create Instance**.
 4.  **Name:** `recall-app-server` (or any name).
 5.  **Image & Shape:**
-    *   **Image:** Canonical Ubuntu 22.04 (recommended) or Oracle Linux 8.
-    *   **Shape:** `VM.Standard.A1.Flex` (Ampere / ARM) is great for performance in Free Tier. Standard AMD/Intel shapes work too.
+    *   **Image:** **Canonical Ubuntu 22.04** (Recommended) or Oracle Linux 8.
+    *   **Shape:** Select **Ampere** (ARM) -> **VM.Standard.A1.Flex**.
+    *   **Config:** Set **OCPUs** to **4** and **Memory** to **24 GB**.
+    *   *Note: This is the high-performance "Always Free" tier. If A1 is out of capacity, you can try `VM.Standard.E2.1.Micro` (AMD), but it only has 1GB RAM which might be tight for this app.*
 6.  **Networking:**
     *   Create a new VCN or select existing one.
     *   Ensure **Assign a public IPv4 address** is selected.
@@ -29,46 +31,40 @@ This guide walks you through deploying the Recall application to an Oracle Cloud
 2.  Click on the **Subnet** link under "Primary VNIC".
 3.  Click on the **Security List** (e.g., `Default Security List for...`).
 4.  Click **Add Ingress Rules**.
-5.  Add the following rules:
+5.  Add the following rules to allow traffic:
     *   **Source CIDR:** `0.0.0.0/0`
     *   **Destination Port Range:** `80, 443, 3000, 8000`
     *   **Protocol:** TCP
 6.  Click **Add Ingress Rules**.
 
-*(Note: You might also need to open ports in the VM's internal firewall later.)*
-
 ## Step 3: Connect to the Instance
 
-Use your terminal (PowerShell or Bash) to SSH into the server:
+Use your terminal to SSH into the server:
 
 ```bash
 ssh -i path/to/private/key ubuntu@<YOUR_INSTANCE_PUBLIC_IP>
-# Note: User is 'opc' for Oracle Linux, 'ubuntu' for Ubuntu.
 ```
 
-## Step 4: Install Docker & Git
+## Step 4: Install System Dependencies (ARM Compatible)
 
-Run these commands on the server:
+Since we are using the ARM (Ampere) instance, we build the Docker images directly on the server to ensure compatibility.
 
 ```bash
 # Update packages
 sudo apt update && sudo apt upgrade -y
 
-# Install Docker
-sudo apt install docker.io -y
+# Install Docker & Build Tools
+# build-essential is important for compiling Python packages on ARM
+sudo apt install docker.io docker-compose git build-essential -y
+
+# Start Docker
 sudo systemctl start docker
 sudo systemctl enable docker
 
-# Add current user to docker group (to run without sudo)
+# Add current user to docker group (avoids using sudo for docker commands)
 sudo usermod -aG docker $USER
 
-# Install Docker Compose
-sudo apt install docker-compose -y
-
-# Install Git
-sudo apt install git -y
-
-# Apply group changes (exit and log back in, or run this):
+# Apply group changes (log out and back in, or run this):
 newgrp docker
 ```
 
