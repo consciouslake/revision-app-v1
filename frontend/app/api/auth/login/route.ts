@@ -13,7 +13,9 @@ export async function POST(request: Request) {
             );
         }
 
-        if (password === adminPassword) {
+        console.log(`[LOGIN DEBUG] Input: '${password}' (${password?.length}) | Env: '${adminPassword}' (${adminPassword?.length})`);
+
+        if (password === adminPassword.trim()) {
             // Set the cookie
             const cookieStore = await cookies();
             cookieStore.set('auth_token', 'valid_admin_session', {
