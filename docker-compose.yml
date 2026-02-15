@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: recall-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # PERSISTENCE: Map host folder to container
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/recall.db:/app/backend/recall.db
+      # PERSISTENCE: Use named volume for ChromaDB (avoids Windows/Linux lock issues)
+      - chroma_data:/app/backend/chroma_db
+    environment:
+      # Database URL (SQLite file path inside container)
+      - DATABASE_URL=sqlite:///./recall.db
+      # Pass through Google API Key from host .env
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: recall-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # Browser needs to reach backend at localhost:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  chroma_data:

@@ -17,7 +17,13 @@ except ImportError as e:
 chroma_client = None
 if CHROMADB_AVAILABLE:
     try:
-        chroma_client = chromadb.PersistentClient(path="./chroma_db")
+        # Initialize with settings to avoid some versioning/telemetry issues
+        settings = chromadb.config.Settings(
+            anonymized_telemetry=False,
+            allow_reset=True,
+            is_persistent=True
+        )
+        chroma_client = chromadb.PersistentClient(path="./chroma_db", settings=settings)
         print("INFO: ChromaDB initialized successfully.")
     except Exception as e:
         print(f"CRITICAL: Error initializing ChromaDB client: {e}")

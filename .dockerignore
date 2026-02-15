@@ -1,0 +1,19 @@
+# Ignore local dependencies/builds
+node_modules/
+venv/
+__pycache__/
+.next/
+dist/
+build/
+.git/
+.gitignore
+
+# Ignore local env files
+.env
+.env.local
+
+# Ignore logs and local DBs usually
+*.log
+*.db
+*.sqlite3
+chroma_db/

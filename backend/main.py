@@ -110,13 +110,9 @@ async def create_chapter(
     db.commit()
     db.refresh(db_chapter)
 
-    # Process Embeddings for RAG (Async in a real app, but sync here for simplicity/MVP)
-    try:
-        from services.rag_service import process_chapter_content
-        print(f"Processing embeddings for chapter {db_chapter.id}...")
-        process_chapter_content(db_chapter.id, raw_text)
-    except Exception as e:
-        print(f"Error processing embeddings: {e}")
+    # Process Embeddings for RAG - REMOVED for manual trigger to save credits
+    # User must click "Index for AI" to generate embeddings.
+    print(f"Chapter {db_chapter.id} created. RAG indexing skipped (manual trigger required).")
 
     return db_chapter
 
@@ -150,7 +146,20 @@ def delete_chapter(chapter_id: int, db: Session = Depends(get_db)):
     
     db.delete(db_chapter)
     db.commit()
+    db.delete(db_chapter)
+    db.commit()
     return {"message": "Chapter deleted successfully"}
+
+@app.get("/chapters/{chapter_id}/progress", response_model=schemas.UserProgress)
+def get_chapter_progress(chapter_id: int, db: Session = Depends(get_db)):
+    # Mock user_id = 1
+    prog = db.query(models.UserProgress).filter(
+        models.UserProgress.chapter_id == chapter_id,
+        models.UserProgress.user_id == 1
+    ).first()
+    if not prog:
+        raise HTTPException(status_code=404, detail="Progress not found")
+    return prog
 
 # Flashcard Endpoints
 
