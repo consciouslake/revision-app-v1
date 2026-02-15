@@ -14,6 +14,11 @@ export function SiteHeader() {
         { href: "/subjects", label: "Subjects", icon: Layers },
     ];
 
+    const handleLogout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+    };
+
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-slate-950/80 backdrop-blur-sm">
             <div className="container flex h-16 items-center justify-between px-6">
@@ -43,6 +48,14 @@ export function SiteHeader() {
                     </nav>
                 </div>
                 <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleLogout}
+                        className="text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                    >
+                        Logout
+                    </Button>
                     <Button variant="ghost" size="icon" className="rounded-full">
                         <User className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                     </Button>

@@ -103,7 +103,7 @@ export default function Home() {
             <div>
               <p className="text-slate-500 dark:text-slate-400 font-medium mb-1">{format(new Date(), 'EEEE, MMMM do')}</p>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Welcome back, <span className="text-indigo-600 dark:text-indigo-400">Student</span>!
+                Welcome back, <span className="text-indigo-600 dark:text-indigo-400">Admin</span>!
               </h1>
             </div>
 

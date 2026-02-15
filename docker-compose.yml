@@ -28,9 +28,10 @@ services:
     container_name: recall-frontend
     ports:
       - "3000:3000"
-    environment:
-      # Browser needs to reach backend at localhost:8000
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    env_file:
+      - ./frontend/.env
+      # environment:
+      # - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend
     restart: unless-stopped
