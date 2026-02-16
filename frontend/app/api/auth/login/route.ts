@@ -20,8 +20,8 @@ export async function POST(request: Request) {
             const cookieStore = await cookies();
             cookieStore.set('auth_token', 'valid_admin_session', {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
+                secure: false, // process.env.NODE_ENV === 'production', (Disabled for HTTP-only Oracle Cloud deployment)
+                sameSite: 'lax', // Relaxed for redirect compatibility
                 maxAge: 60 * 60 * 24 * 7, // 1 week
                 path: '/',
             });

@@ -29,33 +29,37 @@ export function SiteHeader() {
                         </div>
                         <span>Recall.</span>
                     </Link>
-                    <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                    "flex items-center gap-2 transition-colors hover:text-indigo-600",
-                                    pathname === item.href
-                                        ? "text-indigo-600"
-                                        : "text-slate-600 dark:text-slate-400"
-                                )}
-                            >
-                                <item.icon className="h-4 w-4" />
-                                {item.label}
-                            </Link>
-                        ))}
-                    </nav>
+                    {pathname !== '/login' && (
+                        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+                            {navItems.map((item) => (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={cn(
+                                        "flex items-center gap-2 transition-colors hover:text-indigo-600",
+                                        pathname === item.href
+                                            ? "text-indigo-600"
+                                            : "text-slate-600 dark:text-slate-400"
+                                    )}
+                                >
+                                    <item.icon className="h-4 w-4" />
+                                    {item.label}
+                                </Link>
+                            ))}
+                        </nav>
+                    )}
                 </div>
                 <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleLogout}
-                        className="text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                    >
-                        Logout
-                    </Button>
+                    {pathname !== '/login' && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleLogout}
+                            className="text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                        >
+                            Logout
+                        </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="rounded-full">
                         <User className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                     </Button>
