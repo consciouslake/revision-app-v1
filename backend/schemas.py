@@ -161,3 +161,76 @@ class SubjectStats(BaseModel):
     completed_chapters: int
     last_studied_at: Optional[datetime] = None
     completeness_percentage: int
+
+class MasterQuestionBase(BaseModel):
+    subject: str
+    chapter: str
+    topic: str
+    question_text: str
+    options: dict # {"A": "...", "B": "..."}
+    correct_option: str
+    explanation: str
+    image_url: Optional[str] = None
+    option_images: Optional[dict] = None
+
+class MasterQuestion(MasterQuestionBase):
+    id: int
+    difficulty: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class IngestionStatus(BaseModel):
+    task_id: str
+    status: str
+    total_chunks: int
+    processed_chunks: int
+    questions_count: int
+    message: str
+    error: Optional[str] = None
+
+class MasterQuizSessionBase(BaseModel):
+    score: int
+    total_questions: int
+    answers: Optional[dict] = {}
+
+class MasterQuizSessionCreate(MasterQuizSessionBase):
+    pass
+
+class MasterQuizSession(MasterQuizSessionBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Analytics & Editor Schemas
+
+class MasterQuestionUpdate(BaseModel):
+    question_text: Optional[str] = None
+    options: Optional[dict] = None
+    correct_option: Optional[str] = None
+    explanation: Optional[str] = None
+    image_url: Optional[str] = None
+    option_images: Optional[dict] = None
+
+class WeakArea(BaseModel):
+    topic: str
+    accuracy: int
+    total_attempts: int
+
+class AnalyticsResponse(BaseModel):
+    weak_topics: List[WeakArea]
+    strong_topics: List[WeakArea]
+
+class HistoryItem(BaseModel):
+    id: int
+    score: int
+    total_questions: int
+    created_at: datetime
+    topic_summary: Optional[str] = "Mixed"
+
+class BatchDeleteRequest(BaseModel):
+    question_ids: List[int]
+

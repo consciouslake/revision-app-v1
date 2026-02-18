@@ -1,5 +1,6 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css"; // Math support
 import { cn } from "@/lib/utils";
 import { SiteHeader } from "@/components/SiteHeader";
 

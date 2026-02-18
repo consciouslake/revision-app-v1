@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Sparkles, Home, Layers, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Sparkles, Home, Layers, User, BrainCircuit, LineChart } from "lucide-react";
+import { Button } from "./ui/button"; // Correct relative import
 
 export function SiteHeader() {
     const pathname = usePathname();
@@ -12,12 +12,18 @@ export function SiteHeader() {
     const navItems = [
         { href: "/", label: "Home", icon: Home },
         { href: "/subjects", label: "Subjects", icon: Layers },
+        { href: "/master-quiz", label: "Master Quiz", icon: BrainCircuit },
+        { href: "/question-bank", label: "Q-Bank", icon: Layers },
+        { href: "/quiz-history", label: "History", icon: LineChart },
     ];
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/login';
     };
+
+    // Hide header on login and study pages (Study page has its own header)
+    if (pathname === '/login' || pathname?.startsWith('/study/')) return null;
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-slate-950/80 backdrop-blur-sm">

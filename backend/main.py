@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from database import engine, get_db, Base
+from database import engine, get_db, Base, SessionLocal
 import models
 import schemas
 from typing import List
@@ -10,6 +10,9 @@ import shutil
 import os
 from services.pdf_service import extract_text_from_pdf
 from services.ai_service import ask_gemini
+from services.quiz_ingestion_service import process_pdf_ingestion, get_ingestion_status
+from sqlalchemy.sql.expression import func
+import uuid
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
@@ -36,6 +39,17 @@ app.add_middleware(
 # Ensure uploads directory exists
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    print(f"Validation Error: {exc}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": exc.body},
+    )
 
 # Mount static files
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -566,3 +580,237 @@ async def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_
     db.commit()
     
     return {"response": response_text}
+
+@app.post("/api/master/ingest", response_model=schemas.IngestionStatus)
+async def ingest_master_quiz(
+    background_tasks: BackgroundTasks,
+    subject: str = Form(...),
+    file: UploadFile = File(...)
+):
+    task_id = str(uuid.uuid4())
+    
+    # Save file temporarily
+    file_path = os.path.join(UPLOAD_DIR, f"{task_id}_{file.filename}")
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Start Background Task
+    background_tasks.add_task(process_pdf_ingestion, task_id, file_path, subject, SessionLocal)
+    
+    return {
+        "task_id": task_id,
+        "status": "processing",
+        "total_chunks": 0,
+        "processed_chunks": 0,
+        "questions_count": 0,
+        "message": "Ingestion started in background."
+    }
+
+@app.get("/api/master/ingest/{task_id}/status", response_model=schemas.IngestionStatus)
+def get_ingestion_status_endpoint(task_id: str):
+    return get_ingestion_status(task_id)
+
+@app.get("/api/master/filters")
+def get_master_filters(subject: str = None, db: Session = Depends(get_db)):
+    if subject:
+        # Get topics with counts for this subject
+        results = db.query(models.MasterQuestion.topic, func.count(models.MasterQuestion.id))\
+            .filter(models.MasterQuestion.subject == subject)\
+            .group_by(models.MasterQuestion.topic)\
+            .all()
+        
+        # Determine total questions for the subject
+        total_questions = sum([r[1] for r in results])
+        
+        # Format: [{"topic": "Algebra", "count": 15}, ...]
+        topics_data = [{"topic": r[0], "count": r[1]} for r in results if r[0]]
+        
+        return {
+            "topics": sorted(topics_data, key=lambda x: x["topic"]),
+            "total_questions": total_questions
+        }
+    else:
+        # Get distinct subjects with total count
+        results = db.query(models.MasterQuestion.subject, func.count(models.MasterQuestion.id))\
+            .group_by(models.MasterQuestion.subject)\
+            .all()
+            
+        subjects_data = [{"subject": r[0], "count": r[1]} for r in results if r[0]]
+        return {"subjects": sorted([s["subject"] for s in subjects_data])}
+
+@app.get("/api/master/generate", response_model=List[schemas.MasterQuestion])
+def generate_master_quiz(
+    subject: str,
+    topic: str = None,
+    count: int = 20,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.MasterQuestion).filter(models.MasterQuestion.subject == subject)
+    
+    if topic and topic != "All":
+        query = query.filter(models.MasterQuestion.topic == topic)
+        
+    # If count is -1 or 0, return ALL questions (Full Mock or Full Topic)
+    if count <= 0:
+        questions = query.all()
+    else:
+        # Randomized subset
+        questions = query.order_by(func.random()).limit(count).all()
+        
+    return questions
+
+    db.add(db_session)
+    db.commit()
+    db.refresh(db_session)
+    return db_session
+
+# --- Master Quiz Editor & Analytics ---
+
+@app.get("/api/master/questions", response_model=List[schemas.MasterQuestion])
+def get_all_master_questions(
+    skip: int = 0, 
+    limit: int = 50, 
+    subject: str = None, 
+    topic: str = None, 
+    search: str = None,
+    db: Session = Depends(get_db)
+):
+    q = db.query(models.MasterQuestion)
+    if subject and subject != "All":
+        q = q.filter(models.MasterQuestion.subject == subject)
+    if topic and topic != "All":
+        q = q.filter(models.MasterQuestion.topic == topic)
+    if search:
+        q = q.filter(models.MasterQuestion.question_text.ilike(f"%{search}%"))
+        
+    return q.order_by(models.MasterQuestion.id.desc()).offset(skip).limit(limit).all()
+
+@app.put("/api/master/questions/{question_id}", response_model=schemas.MasterQuestion)
+def update_master_question(question_id: int, updates: schemas.MasterQuestionUpdate, db: Session = Depends(get_db)):
+    q = db.query(models.MasterQuestion).filter(models.MasterQuestion.id == question_id).first()
+    if not q:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    data = updates.dict(exclude_unset=True)
+    for key, value in data.items():
+        setattr(q, key, value)
+    
+    db.commit()
+    db.refresh(q)
+    return q
+
+@app.post("/api/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    # Save file
+    safe_filename = f"{uuid.uuid4()}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, safe_filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Return relative URL
+    return {"url": f"uploads/{safe_filename}"}
+
+@app.get("/api/master/analytics/weak-areas", response_model=schemas.AnalyticsResponse)
+def get_weak_areas(db: Session = Depends(get_db)):
+    # Mock user_id = 1
+    sessions = db.query(models.MasterQuizSession).filter(models.MasterQuizSession.user_id == 1).all()
+    
+    topic_stats = {} # {topic: {total: 0, correct: 0}}
+    
+    # 1. Collect all answers
+    all_answers = [] # [(q_id, user_ans)]
+    for s in sessions:
+        if s.answers:
+            for q_id, ans in s.answers.items():
+                all_answers.append((int(q_id), ans))
+                
+    if not all_answers:
+         return {"weak_topics": [], "strong_topics": []}
+
+    # 2. Bulk fetch questions to avoid N+1
+    q_ids = [gid for gid, _ in all_answers]
+    questions = db.query(models.MasterQuestion).filter(models.MasterQuestion.id.in_(q_ids)).all()
+    q_map = {q.id: q for q in questions}
+    
+    # 3. Calculate Stats
+    for q_id, user_ans in all_answers:
+        q = q_map.get(q_id)
+        if not q: continue
+        
+        topic = q.topic or "General"
+        if topic not in topic_stats:
+            topic_stats[topic] = {"total": 0, "correct": 0}
+            
+        topic_stats[topic]["total"] += 1
+        if user_ans == q.correct_option:
+             topic_stats[topic]["correct"] += 1
+             
+    # 4. Format Result
+    weak = []
+    strong = []
+    
+    for topic, stats in topic_stats.items():
+        acc = int((stats["correct"] / stats["total"]) * 100)
+        item = schemas.WeakArea(topic=topic, accuracy=acc, total_attempts=stats["total"])
+        
+        if acc < 60:
+            weak.append(item)
+        else:
+            strong.append(item)
+            
+    # Sort weak by lowest accuracy
+    weak.sort(key=lambda x: x.accuracy)
+    # Sort strong by highest accuracy
+    strong.sort(key=lambda x: x.accuracy, reverse=True)
+    
+    return {"weak_topics": weak, "strong_topics": strong}
+
+@app.get("/api/master/analytics/history", response_model=List[schemas.HistoryItem])
+def get_quiz_history(db: Session = Depends(get_db)):
+    sessions = db.query(models.MasterQuizSession).filter(models.MasterQuizSession.user_id == 1).order_by(models.MasterQuizSession.created_at.desc()).all()
+    
+    history = []
+    for s in sessions:
+        # Infer topic from first question? Or better, store topic in session? 
+        # For now, "Mixed" or check first answer's question topic if we want to be fancy.
+        # Let's keep it simple: "Mixed Practice"
+        summary = "Generic Quiz"
+        # If we want to check topic, we'd need to query. Let's skip for perf now.
+        
+        history.append(schemas.HistoryItem(
+            id=s.id,
+            score=s.score,
+            total_questions=s.total_questions,
+            created_at=s.created_at,
+            topic_summary=summary
+        ))
+        
+    return history
+
+
+@app.post("/api/master/submit", response_model=schemas.MasterQuizSession)
+def submit_master_quiz(session: schemas.MasterQuizSessionCreate, db: Session = Depends(get_db)):
+    # Mock user_id = 1
+    db_session = models.MasterQuizSession(
+        user_id=1,
+        score=session.score,
+        total_questions=session.total_questions,
+        answers=session.answers
+    )
+    db.add(db_session)
+    db.commit()
+    db.refresh(db_session)
+    return db_session
+
+@app.delete("/api/master/questions/batch")
+def delete_master_questions_batch(request: schemas.BatchDeleteRequest, db: Session = Depends(get_db)):
+    if not request.question_ids:
+        return {"message": "No questions provided"}
+        
+    # Chunking deletes if list is huge (optional, but safe)
+    # For now, direct delete
+    stmt = models.MasterQuestion.__table__.delete().where(models.MasterQuestion.id.in_(request.question_ids))
+    result = db.execute(stmt)
+    db.commit()
+    
+    return {"message": f"Deleted {result.rowcount} questions successfully"}

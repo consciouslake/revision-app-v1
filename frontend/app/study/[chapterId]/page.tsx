@@ -103,7 +103,12 @@ export default function StudyPage() {
     // FastAPI implementation: We haven't set up StaticFiles in backend/main.py yet!
     // I must fix backend to serve uploads.
     // For now, let's assume the URL is correct relative to the API.
-    const pdfUrl = `${process.env.NEXT_PUBLIC_API_URL}/${chapter.pdf_url.replace(/\\/g, "/")}`;
+    // URL Construction with Fallback and URI Encoding
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    // Ensure properly formed URL. If pdf_url is 'uploads/foo.pdf', result is 'http://.../uploads/foo.pdf'
+    // Encode the path part to handle spaces/special chars
+    const encodedPath = chapter.pdf_url.split('/').map(encodeURIComponent).join('/');
+    const pdfUrl = `${apiUrl}/${encodedPath}`;
 
     return (
         <div className="h-[calc(100vh-4rem)] flex flex-col bg-slate-50 overflow-hidden">

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -96,3 +96,29 @@ class UserProgress(Base):
     is_important = Column(Boolean, default=False)
     last_read_position = Column(Integer, default=0)
     last_read_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class MasterQuestion(Base):
+    __tablename__ = "master_questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject = Column(String, index=True)
+    chapter = Column(String, index=True)
+    topic = Column(String, index=True)
+    question_text = Column(Text)
+    options = Column(JSON) # {"A": "...", "B": "..."}
+    correct_option = Column(String)
+    explanation = Column(Text)
+    difficulty = Column(String, nullable=True)
+    question_hash = Column(String, unique=True, index=True) # For deduplication
+    image_url = Column(String, nullable=True) # URL to question image
+    option_images = Column(JSON, nullable=True) # {"A": "url", "B": "url"}
+
+class MasterQuizSession(Base):
+    __tablename__ = "master_quiz_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, default=1) # Mock user id
+    score = Column(Integer)
+    total_questions = Column(Integer)
+    answers = Column(JSON) # {q_id: selected_option}
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
