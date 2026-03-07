@@ -23,15 +23,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: recall-frontend
     ports:
       - "3000:3000"
     env_file:
       - ./frontend/.env
-      # environment:
-      # - NEXT_PUBLIC_API_URL=http://localhost:8000
+    environment:
+      - BACKEND_INTERNAL_URL=http://backend:8000
     depends_on:
       - backend
     restart: unless-stopped
