@@ -60,15 +60,11 @@ export default function ChatComponent({ chapterId, mode = "chat" }: { chapterId:
         setIsLoading(true);
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat`, {
+            const data = await fetchAPI("/api/chat", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ chapter_id: chapterId, user_query: userMessage.content }),
             });
 
-            if (!response.ok) throw new Error("Failed to send message");
-
-            const data = await response.json();
             const aiMessage: Message = { role: "ai", content: data.response };
             setMessages((prev) => [...prev, aiMessage]);
         } catch (error) {
